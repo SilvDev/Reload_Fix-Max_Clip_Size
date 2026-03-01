@@ -19,6 +19,11 @@
 				"windows"	"260"
 				"linux"		"261"
 			}
+			"CBaseCombatWeapon::SendViewModelAnim"
+			{
+				"windows"	"232"
+				"linux"		"233"
+			}
 		}
 
 		"Signatures"
@@ -52,6 +57,11 @@
 			{
 				"windows"	"281"
 				"linux"		"282"
+			}
+			"CBaseCombatWeapon::SendViewModelAnim"
+			{
+				"windows"	"252"
+				"linux"		"253"
 			}
 		}
 

@@ -18,7 +18,7 @@
 
 
 
-#define PLUGIN_VERSION		"1.5"
+#define PLUGIN_VERSION		"1.6"
 
 /*======================================================================================
 	Plugin Info:
@@ -147,6 +147,7 @@ public void OnAllPluginsLoaded()
 Handle g_hSDK_Call_AbortReload;
 Handle g_hSDK_Call_FinishReload;
 Handle g_hSDK_Call_StartReload;
+Handle g_hSDK_Call_SendViewModelAnim;
 
 public void OnPluginStart()
 {
@@ -188,10 +189,18 @@ public void OnPluginStart()
 	if( g_hSDK_Call_StartReload == null )
 		SetFailState("Failed to create SDKCall: CTerrorGun::Reload");
 
+	StartPrepSDKCall(SDKCall_Entity);
+	if( PrepSDKCall_SetFromConf(hGameData, SDKConf_Virtual, "CBaseCombatWeapon::SendViewModelAnim") == false )
+		SetFailState("Failed to find offset: CBaseCombatWeapon::SendViewModelAnim");
+	PrepSDKCall_AddParameter(SDKType_PlainOldData, SDKPass_Plain);
+	g_hSDK_Call_SendViewModelAnim = EndPrepSDKCall();
+	if( g_hSDK_Call_SendViewModelAnim == null )
+		SetFailState("Failed to create SDKCall: CBaseCombatWeapon::SendViewModelAnim");
+
 	// =========================
 	// DETOUR
 	// =========================
-	Handle hDetour = DHookCreateDetour(Address_Null, CallConv_THISCALL, ReturnType_Bool, ThisPointer_CBaseEntity);
+	DynamicDetour hDetour = DHookCreateDetour(Address_Null, CallConv_THISCALL, ReturnType_Bool, ThisPointer_CBaseEntity);
 	if( !hDetour )
 		SetFailState("Failed to setup detour handle: CTerrorGun::Reload");
 
@@ -340,7 +349,9 @@ Action TimerReload(Handle timer, int weapon)
 	return Plugin_Stop;
 }
 
-MRESReturn OnGunReload(int pThis, Handle hReturn, Handle hParams)
+#define ACT_IDLE_CALM_PUMPSHOTGUN 974
+#define ACT_IDLE_SNIPER_MILITARY 1023
+MRESReturn OnGunReload(int pThis, DHookReturn hReturn)
 {
 	// Validate weapon
 	if( pThis > MaxClients )
@@ -388,15 +399,19 @@ MRESReturn OnGunReload(int pThis, Handle hReturn, Handle hParams)
 							// Fix animation glitch
 							SetEntPropFloat(weapon, Prop_Send, "m_flNextPrimaryAttack", GetGameTime() + 0.1);
 
-							// Stop reloading GL
-							if( strcmp(classname[7], "grenade_launcher") == 0 || (g_hCvarM60.BoolValue && strcmp(classname[7], "rifle_m60") == 0) )
+							// Stop showing GL and m60 reloading animations
+							if( strcmp(classname[7], "grenade_launcher") == 0 )
 							{
-								RemovePlayerItem(client, weapon);
-								EquipPlayerWeapon(client, weapon);
+								// ACT_IDLE_CALM_SNIPER_MILITARY
+								SDKCall(g_hSDK_Call_SendViewModelAnim, weapon, ACT_IDLE_CALM_PUMPSHOTGUN);
+							}
+							else if((g_hCvarM60.BoolValue && strcmp(classname[7], "rifle_m60") == 0))
+							{
+								SDKCall(g_hSDK_Call_SendViewModelAnim, weapon, ACT_IDLE_SNIPER_MILITARY);
 							}
 
 							// Stop reloading
-							DHookSetReturn(hReturn, 0);
+							hReturn.Value = 0;
 							return MRES_Supercede;
 						}
 					}
